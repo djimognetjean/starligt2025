@@ -1,0 +1,120 @@
+{% extends "layout.html" %}
+
+{% block title %}Rapport de Ventes{% endblock %}
+
+{% block content %}
+    <h1>Rapport de Ventes</h1>
+
+    <div class="reporting-form-container">
+        <form method="POST" action="{{ url_for('reporting_page') }}">
+            <div class="form-group">
+                <label for="start_date">Date de Début :</label>
+                <input type="date" id="start_date" name="start_date" value="{{ start_date }}" required>
+            </div>
+            <div class="form-group">
+                <label for="end_date">Date de Fin :</label>
+                <input type="date" id="end_date" name="end_date" value="{{ end_date }}" required>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn">Générer le Rapport</button>
+            </div>
+        </form>
+    </div>
+
+    {% if report %}
+        <div class="report-results">
+            <h2>Résultats pour la période du {{ report.start_date }} au {{ report.end_date }}</h2>
+
+            <!-- Cartes de résumé -->
+            <div class="summary-cards">
+                <div class="card">
+                    <h4>Chiffre d'Affaires Total</h4>
+                    <p>{{ "%.0f"|format(report.total_revenue) }} FCFA</p>
+                </div>
+                <div class="card">
+                    <h4>Revenus des Séjours</h4>
+                    <p>{{ "%.0f"|format(report.stay_revenue) }} FCFA</p>
+                </div>
+                <div class="card">
+                    <h4>Revenus du Point de Vente</h4>
+                    <p>{{ "%.0f"|format(report.pos_revenue) }} FCFA</p>
+                </div>
+            </div>
+
+            <!-- Tableaux de détails -->
+            <div class="details-tables">
+                <div class="table-container">
+                    <h3>Ventilation par Mode de Paiement</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Mode de Paiement</th>
+                                <th>Montant Total (FCFA)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in report.payments_breakdown %}
+                            <tr>
+                                <td>{{ payment.mode_paiement }}</td>
+                                <td>{{ "%.0f"|format(payment.total) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2">Aucune donnée de paiement.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-container">
+                    <h3>Top 5 Produits (par Quantité)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Quantité Vendue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in report.top_products_by_qty %}
+                            <tr>
+                                <td>{{ product.nom }}</td>
+                                <td>{{ product.total_qty }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2">Aucun produit vendu.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-container">
+                    <h3>Top 5 Produits (par Chiffre d'Affaires)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Chiffre d'Affaires (FCFA)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in report.top_products_by_value %}
+                            <tr>
+                                <td>{{ product.nom }}</td>
+                                <td>{{ "%.0f"|format(product.total_value) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2">Aucun produit vendu.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        {% if request.method == 'POST' %}
+        <p class="report-placeholder">Aucune donnée trouvée pour la période sélectionnée.</p>
+        {% else %}
+        <p class="report-placeholder">Veuillez sélectionner une période et cliquer sur "Générer le Rapport" pour afficher les données.</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}

@@ -84,11 +84,30 @@ def create_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 numero TEXT UNIQUE NOT NULL,
                 type_chambre TEXT NOT NULL,
-                prix_nuit REAL NOT NULL
+                prix_nuit REAL NOT NULL,
+                statut TEXT DEFAULT 'Libre' NOT NULL
+            )
+        """)
+        # Assurer la compatibilité ascendante en ajoutant la colonne si elle n'existe pas
+        try:
+            cursor.execute("ALTER TABLE chambres ADD COLUMN statut TEXT DEFAULT 'Libre' NOT NULL")
+        except sqlite3.OperationalError:
+            pass # La colonne existe déjà, on ne fait rien
+
+        # 3. Table des Réservations
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS reservations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chambre_id INTEGER NOT NULL,
+                client_nom TEXT NOT NULL,
+                date_debut TEXT NOT NULL,
+                date_fin TEXT NOT NULL,
+                statut TEXT DEFAULT 'Confirmée' NOT NULL, -- Confirmée, Annulée
+                FOREIGN KEY (chambre_id) REFERENCES chambres(id)
             )
         """)
 
-        # 3. Table des Séjours
+        # 4. Table des Séjours
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS sejours (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

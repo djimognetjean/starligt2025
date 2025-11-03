@@ -13,7 +13,7 @@ def get_db_connection():
 def get_all_rooms():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, numero, type_chambre, prix_nuit FROM chambres ORDER BY numero")
+    cursor.execute("SELECT id, numero, type_chambre, prix_nuit, statut FROM chambres ORDER BY numero")
     rooms = cursor.fetchall()
     conn.close()
     return rooms
@@ -102,11 +102,33 @@ def get_active_stays():
     conn.close()
     return stays
 
-def get_available_rooms():
+def get_available_rooms_for_period(start_date, end_date):
+    """
+    Retourne les chambres qui ne sont ni occupées (séjour en cours)
+    ni réservées pendant la période spécifiée.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
-    query = "SELECT * FROM chambres WHERE id NOT IN (SELECT chambre_id FROM sejours WHERE date_checkout_reelle IS NULL) ORDER BY numero"
-    cursor.execute(query)
+
+    query = """
+        SELECT * FROM chambres
+        WHERE id NOT IN (
+            -- Exclure les chambres avec des séjours qui se chevauchent
+            SELECT chambre_id FROM sejours
+            WHERE date_checkout_reelle IS NULL -- Séjours actifs
+
+            UNION
+
+            -- Exclure les chambres avec des réservations qui se chevauchent
+            SELECT chambre_id FROM reservations
+            WHERE statut = 'Confirmée'
+              AND date_debut < ?
+              AND date_fin > ?
+        )
+        ORDER BY numero
+    """
+
+    cursor.execute(query, (end_date, start_date))
     rooms = cursor.fetchall()
     conn.close()
     return rooms
@@ -118,10 +140,85 @@ def create_new_stay(room_id, client_name, date_checkout_prevue):
     try:
         cursor.execute("INSERT INTO sejours (chambre_id, client_nom, date_checkin, date_checkout_prevue, statut) VALUES (?, ?, ?, ?, 'Ouvert')", 
                        (room_id, client_name, date_checkin, date_checkout_prevue))
+        update_room_status(room_id, 'Occupée')
         conn.commit()
         return True
     except sqlite3.Error as e: return False
     finally: conn.close()
+
+# --- GESTION DES RÉSERVATIONS ---
+def create_reservation(chambre_id, client_nom, date_debut, date_fin):
+    """Crée une nouvelle réservation."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO reservations (chambre_id, client_nom, date_debut, date_fin)
+            VALUES (?, ?, ?, ?)
+        """, (chambre_id, client_nom, date_debut, date_fin))
+        # Mettre à jour le statut de la chambre
+        update_room_status(chambre_id, 'Réservée')
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la création de la réservation : {e}")
+        return False
+    finally:
+        conn.close()
+
+def cancel_reservation(reservation_id):
+    """Annule une réservation et libère la chambre."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Récupérer l'ID de la chambre pour la mettre à jour
+        cursor.execute("SELECT chambre_id FROM reservations WHERE id = ?", (reservation_id,))
+        result = cursor.fetchone()
+        if not result:
+            return False
+        room_id = result['chambre_id']
+
+        # Mettre à jour la réservation
+        cursor.execute("UPDATE reservations SET statut = 'Annulée' WHERE id = ?", (reservation_id,))
+
+        # Libérer la chambre
+        update_room_status(room_id, 'Libre')
+
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Erreur lors de l'annulation de la réservation : {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_all_reservations():
+    """Récupère toutes les réservations à venir."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT r.id, c.numero, r.client_nom, r.date_debut, r.date_fin, r.statut
+        FROM reservations r
+        JOIN chambres c ON r.chambre_id = c.id
+        WHERE r.statut = 'Confirmée' AND r.date_fin >= date('now')
+        ORDER BY r.date_debut
+    """
+    cursor.execute(query)
+    reservations = cursor.fetchall()
+    conn.close()
+    return reservations
+
+def update_room_status(room_id, new_status):
+    """Met à jour le statut d'une chambre."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE chambres SET statut = ? WHERE id = ?", (new_status, room_id))
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la mise à jour du statut de la chambre : {e}")
+    finally:
+        conn.close()
 
 def get_stay_details(stay_id):
     conn = get_db_connection()
@@ -146,13 +243,27 @@ def perform_checkout(stay_id, final_bill_amount):
     cursor = conn.cursor()
     date_checkout_reelle = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     try:
+        # Récupérer l'ID de la chambre avant de clôturer le séjour
+        cursor.execute("SELECT chambre_id FROM sejours WHERE id = ?", (stay_id,))
+        result = cursor.fetchone()
+        if not result:
+            return False
+        room_id = result['chambre_id']
+
         cursor.execute("UPDATE sejours SET date_checkout_reelle = ?, solde_actuel = ?, statut = 'Clos' WHERE id = ?", 
                        (date_checkout_reelle, final_bill_amount, stay_id))
         cursor.execute("UPDATE commandes_ventes SET statut_paiement = 'Payé' WHERE stay_id = ?", (stay_id,))
+
+        # Mettre à jour le statut de la chambre
+        update_room_status(room_id, 'Libre') # Ou 'Nettoyage' si on veut complexifier
+
         conn.commit()
         return True
-    except sqlite3.Error as e: return False
-    finally: conn.close()
+    except sqlite3.Error as e:
+        print(f"Erreur lors du checkout : {e}")
+        return False
+    finally:
+        conn.close()
 
 # --- GESTION DU POS ET DES COMMANDES ---
 # (Inchangé)
@@ -236,3 +347,92 @@ def get_order_details(order_id):
 
     conn.close()
     return details
+
+# --- MODULE REPORTING ---
+
+def get_sales_report(start_date, end_date):
+    """
+    Génère un rapport de ventes agrégé sur une période donnée.
+    """
+    # Ajoute l'heure pour couvrir toute la journée de fin
+    start_date_sql = f"{start_date} 00:00:00"
+    end_date_sql = f"{end_date} 23:59:59"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    report = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'total_revenue': 0,
+        'stay_revenue': 0,
+        'pos_revenue': 0,
+        'payments_breakdown': [],
+        'top_products_by_qty': [],
+        'top_products_by_value': []
+    }
+
+    try:
+        # 1. Chiffre d'affaires des séjours clôturés dans la période
+        cursor.execute("""
+            SELECT SUM(solde_actuel)
+            FROM sejours
+            WHERE statut = 'Clos' AND date_checkout_reelle BETWEEN ? AND ?
+        """, (start_date_sql, end_date_sql))
+        stay_revenue = cursor.fetchone()[0] or 0
+        report['stay_revenue'] = stay_revenue
+
+        # 2. Chiffre d'affaires des ventes directes du POS (non transférées)
+        cursor.execute("""
+            SELECT SUM(total_net)
+            FROM commandes_ventes
+            WHERE statut_paiement = 'Payé' AND date_heure BETWEEN ? AND ?
+        """, (start_date_sql, end_date_sql))
+        pos_revenue = cursor.fetchone()[0] or 0
+        report['pos_revenue'] = pos_revenue
+
+        # 3. Chiffre d'affaires total
+        report['total_revenue'] = stay_revenue + pos_revenue
+
+        # 4. Ventilation par mode de paiement (pour les ventes directes)
+        cursor.execute("""
+            SELECT mode_paiement, SUM(montant) as total
+            FROM paiements
+            WHERE date_heure BETWEEN ? AND ?
+            GROUP BY mode_paiement
+            ORDER BY total DESC
+        """, (start_date_sql, end_date_sql))
+        report['payments_breakdown'] = [dict(row) for row in cursor.fetchall()]
+
+        # 5. Top 5 des produits par quantité vendue
+        cursor.execute("""
+            SELECT p.nom, SUM(lc.quantite) as total_qty
+            FROM lignes_commande lc
+            JOIN produits_services p ON lc.produit_id = p.id
+            JOIN commandes_ventes cv ON lc.commande_id = cv.id
+            WHERE cv.date_heure BETWEEN ? AND ?
+            GROUP BY p.nom
+            ORDER BY total_qty DESC
+            LIMIT 5
+        """, (start_date_sql, end_date_sql))
+        report['top_products_by_qty'] = [dict(row) for row in cursor.fetchall()]
+
+        # 6. Top 5 des produits par chiffre d'affaires
+        cursor.execute("""
+            SELECT p.nom, SUM(lc.quantite * lc.prix_unitaire_vente) as total_value
+            FROM lignes_commande lc
+            JOIN produits_services p ON lc.produit_id = p.id
+            JOIN commandes_ventes cv ON lc.commande_id = cv.id
+            WHERE cv.date_heure BETWEEN ? AND ?
+            GROUP BY p.nom
+            ORDER BY total_value DESC
+            LIMIT 5
+        """, (start_date_sql, end_date_sql))
+        report['top_products_by_value'] = [dict(row) for row in cursor.fetchall()]
+
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la génération du rapport : {e}")
+    finally:
+        conn.close()
+
+    return report

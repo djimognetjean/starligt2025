@@ -3,11 +3,27 @@
 {% block title %}Tableau de Bord Réception{% endblock %}
 
 {% block content %}
-    <h1>Tableau de Bord Réception</h1>
-    
-    <a href="{{ url_for('show_checkin_form') }}" class="btn btn-primary" style="margin-bottom: 1.5rem;">🔑 Nouveau Check-in</a>
+<style>
+    .reception-grid {
+        display: grid;
+        grid-template-columns: 3fr 1fr;
+        gap: 2rem;
+        align-items: flex-start;
+    }
+    .widget-card {
+        background: #fff;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+</style>
 
-    <h2>Séjours en Cours</h2>
+<h1>Tableau de Bord Réception</h1>
+
+<div class="reception-grid">
+    <div class="main-content">
+        <a href="{{ url_for('show_checkin_form') }}" class="btn btn-primary" style="margin-bottom: 1.5rem;">🔑 Nouveau Check-in</a>
+        <h2>Séjours en Cours</h2>
 
     <table class="dashboard-table">
         <thead>
@@ -39,4 +55,22 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
+
+    <div class="sidebar">
+        <div class="widget-card">
+            <h4>Arrivées Prévues Aujourd'hui</h4>
+            <ul class="simple-list">
+                {% for arrival in todays_arrivals %}
+                    <li>
+                        <strong>{{ arrival.client_nom }}</strong><br>
+                        <small>Chambre {{ arrival.numero }}</small>
+                    </li>
+                {% else %}
+                    <li>Aucune arrivée prévue.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestion des Réservations{% endblock %}
+
+{% block content %}
+<style>
+    .reservations-container {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 2rem;
+    }
+    .form-card, .list-card {
+        background: #fff;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .form-card h2 {
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 1rem;
+        margin-top: 0;
+    }
+</style>
+
+<h1>Gestion des Réservations</h1>
+
+<div class="reservations-container">
+    <div class="form-card">
+        <h2>Nouvelle Réservation</h2>
+        <form method="POST" action="{{ url_for('reservations_page') }}">
+            <div class="form-group">
+                <label for="date_debut">Date d'arrivée :</label>
+                <input type="date" id="date_debut" name="date_debut" value="{{ start_date_default }}" required>
+            </div>
+            <div class="form-group">
+                <label for="date_fin">Date de départ :</label>
+                <input type="date" id="date_fin" name="date_fin" value="{{ end_date_default }}" required>
+            </div>
+            <div class="form-group">
+                <label for="chambre_id">Chambre disponible :</label>
+                <select id="chambre_id" name="chambre_id" required>
+                    {% for room in available_rooms %}
+                        <option value="{{ room.id }}">{{ room.numero }} - {{ room.type_chambre }}</option>
+                    {% else %}
+                        <option disabled>Aucune chambre libre pour cette période.</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="client_nom">Nom du Client :</label>
+                <input type="text" id="client_nom" name="client_nom" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Créer la Réservation</button>
+        </form>
+    </div>
+
+    <div class="list-card">
+        <h2>Réservations à Venir</h2>
+        <table class="dashboard-table">
+            <thead>
+                <tr>
+                    <th>Chambre</th>
+                    <th>Client</th>
+                    <th>Arrivée</th>
+                    <th>Départ</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resa in reservations %}
+                <tr>
+                    <td><strong>{{ resa.numero }}</strong></td>
+                    <td>{{ resa.client_nom }}</td>
+                    <td>{{ resa.date_debut }}</td>
+                    <td>{{ resa.date_fin }}</td>
+                    <td><span class="status-confirmed">{{ resa.statut }}</span></td>
+                    <td>
+                        <a href="{{ url_for('cancel_reservation_route', reservation_id=resa.id) }}" class="btn-sm btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir annuler cette réservation ?');">Annuler</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 1rem;">Aucune réservation à venir.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
