@@ -77,26 +77,89 @@ def logout():
 def reception():
     """Page principale (Dashboard Réception)."""
     active_stays_data = data_manager.get_active_stays()
+    all_reservations = data_manager.get_all_reservations()
     
+    # Filtrer les arrivées du jour
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    todays_arrivals = [r for r in all_reservations if r['date_debut'] == today_str]
+
     return render_template(
         'reception.html', 
         user=session['user'], 
-        active_stays=active_stays_data
+        active_stays=active_stays_data,
+        todays_arrivals=todays_arrivals
     )
 
 @app.route('/checkin/nouveau', methods=['GET'])
 @login_required
 def show_checkin_form():
     """Affiche la page avec le formulaire de check-in."""
-    available_rooms_data = data_manager.get_available_rooms()
-    default_checkout = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    today = datetime.now().strftime('%Y-%m-%d')
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
     
+    # Récupérer les chambres libres ET les arrivées prévues
+    available_rooms_data = data_manager.get_available_rooms_for_period(today, tomorrow)
+    all_reservations = data_manager.get_all_reservations()
+    todays_arrivals = [r for r in all_reservations if r['date_debut'] == today]
+
     return render_template(
         'checkin.html', 
         user=session['user'],
         available_rooms=available_rooms_data,
-        default_checkout_date=default_checkout
+        todays_arrivals=todays_arrivals, # <-- Ajouté
+        default_checkout_date=tomorrow
     )
+
+# ----------------------------------------------------------------------
+# --- MODULE RÉSERVATIONS ---
+# ----------------------------------------------------------------------
+
+@app.route('/reservations', methods=['GET', 'POST'])
+@login_required
+def reservations_page():
+    """Affiche et gère la création de réservations."""
+    if request.method == 'POST':
+        chambre_id = request.form.get('chambre_id')
+        client_nom = request.form.get('client_nom')
+        date_debut = request.form.get('date_debut')
+        date_fin = request.form.get('date_fin')
+
+        if not all([chambre_id, client_nom, date_debut, date_fin]):
+            flash("Tous les champs sont requis pour la réservation.", 'error')
+        else:
+            success = data_manager.create_reservation(chambre_id, client_nom, date_debut, date_fin)
+            if success:
+                flash("Réservation créée avec succès !", 'success')
+            else:
+                flash("Erreur lors de la création de la réservation.", 'error')
+        return redirect(url_for('reservations_page'))
+
+    # Pour GET, préparer les données
+    start_date_default = datetime.now().strftime('%Y-%m-%d')
+    end_date_default = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+    available_rooms = data_manager.get_available_rooms_for_period(start_date_default, end_date_default)
+    all_reservations = data_manager.get_all_reservations()
+
+    return render_template(
+        'reservations.html',
+        user=session['user'],
+        available_rooms=available_rooms,
+        reservations=all_reservations,
+        start_date_default=start_date_default,
+        end_date_default=end_date_default
+    )
+
+@app.route('/reservations/annuler/<int:reservation_id>')
+@login_required
+def cancel_reservation_route(reservation_id):
+    """Traite l'annulation d'une réservation."""
+    success = data_manager.cancel_reservation(reservation_id)
+    if success:
+        flash("Réservation annulée avec succès.", 'success')
+    else:
+        flash("Erreur lors de l'annulation de la réservation.", 'error')
+    return redirect(url_for('reservations_page'))
 
 @app.route('/checkin/creer', methods=['POST'])
 @login_required

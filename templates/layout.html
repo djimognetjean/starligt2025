@@ -13,6 +13,7 @@
         ...
         <div class="nav-links">
             <a href="{{ url_for('reception') }}">🏨 Réception</a>
+            <a href="{{ url_for('reservations_page') }}">📅 Réservations</a>
             <a href="{{ url_for('pos_interface') }}">💰 Point de Vente (POS)</a>
             
             {% if user and user.role == 'Admin' %}

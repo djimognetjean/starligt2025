@@ -3,7 +3,24 @@
 
 {% block content %}
     <h1>Nouveau Check-in</h1>
-    <p>Remplissez les informations ci-dessous pour enregistrer un nouveau séjour.</p>
+    <p>Sélectionnez une réservation existante ou remplissez les informations manuellement.</p>
+
+    <!-- Section pour les réservations du jour -->
+    <div class="widget-card" style="margin-bottom: 2rem;">
+        <h4>Arrivées Prévues Aujourd'hui</h4>
+        <div class="arrivals-list">
+            {% for arrival in todays_arrivals %}
+                <button class="arrival-btn"
+                        data-client="{{ arrival.client_nom }}"
+                        data-room-id="{{ arrival.chambre_id }}"
+                        data-checkout="{{ arrival.date_fin }}">
+                    <strong>{{ arrival.client_nom }}</strong> (Ch. {{ arrival.numero }})
+                </button>
+            {% else %}
+                <p>Aucune réservation pour aujourd'hui.</p>
+            {% endfor %}
+        </div>
+    </div>
 
     <form method="POST" action="{{ url_for('create_checkin') }}" class="dashboard-table" style="padding: 2rem;">
         
@@ -13,15 +30,14 @@
         </div>
 
         <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label for="chambre_id" style="font-weight: 600;">Chambre Disponible :</label>
+            <label for="chambre_id" style="font-weight: 600;">Chambre :</label>
             <select id="chambre_id" name="chambre_id" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; margin-top: 0.5rem; background-color: white;">
                 {% for room in available_rooms %}
                     <option value="{{ room.id }}">
-                        Ch. {{ room.numero }} ({{ room.type_chambre }}) - {{ "%.0f"|format(room.prix_nuit) }} FCFA
+                        Ch. {{ room.numero }} ({{ room.type_chambre }})
                     </option>
-                {% else %}
-                    <option disabled>Aucune chambre disponible</option>
                 {% endfor %}
+                 <!-- Les chambres réservées seront ajoutées dynamiquement ici -->
             </select>
         </div>
         
@@ -33,4 +49,36 @@
         <button type="submit" class="btn btn-primary">Confirmer le Check-in</button>
         <a href="{{ url_for('reception') }}" style="margin-left: 1rem; color: #777;">Annuler</a>
     </form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const arrivalButtons = document.querySelectorAll('.arrival-btn');
+        const clientNameInput = document.getElementById('client_nom');
+        const roomSelect = document.getElementById('chambre_id');
+        const checkoutInput = document.getElementById('date_checkout_prevue');
+
+        arrivalButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remplir les champs
+                clientNameInput.value = this.dataset.client;
+                checkoutInput.value = this.dataset.checkout;
+
+                const roomId = this.dataset.roomId;
+
+                // Vérifier si l'option de la chambre existe déjà
+                let roomOption = roomSelect.querySelector(`option[value="${roomId}"]`);
+                if (!roomOption) {
+                    // Si elle n'existe pas (car la chambre est réservée), on l'ajoute
+                    roomOption = document.createElement('option');
+                    roomOption.value = roomId;
+                    roomOption.textContent = this.textContent.split('(')[1].replace(')',''); // Extrait "Ch. XXX"
+                    roomSelect.appendChild(roomOption);
+                }
+
+                // Sélectionner la chambre
+                roomSelect.value = roomId;
+            });
+        });
+    });
+</script>
 {% endblock %}
