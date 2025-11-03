@@ -236,3 +236,92 @@ def get_order_details(order_id):
 
     conn.close()
     return details
+
+# --- MODULE REPORTING ---
+
+def get_sales_report(start_date, end_date):
+    """
+    Génère un rapport de ventes agrégé sur une période donnée.
+    """
+    # Ajoute l'heure pour couvrir toute la journée de fin
+    start_date_sql = f"{start_date} 00:00:00"
+    end_date_sql = f"{end_date} 23:59:59"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    report = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'total_revenue': 0,
+        'stay_revenue': 0,
+        'pos_revenue': 0,
+        'payments_breakdown': [],
+        'top_products_by_qty': [],
+        'top_products_by_value': []
+    }
+
+    try:
+        # 1. Chiffre d'affaires des séjours clôturés dans la période
+        cursor.execute("""
+            SELECT SUM(solde_actuel)
+            FROM sejours
+            WHERE statut = 'Clos' AND date_checkout_reelle BETWEEN ? AND ?
+        """, (start_date_sql, end_date_sql))
+        stay_revenue = cursor.fetchone()[0] or 0
+        report['stay_revenue'] = stay_revenue
+
+        # 2. Chiffre d'affaires des ventes directes du POS (non transférées)
+        cursor.execute("""
+            SELECT SUM(total_net)
+            FROM commandes_ventes
+            WHERE statut_paiement = 'Payé' AND date_heure BETWEEN ? AND ?
+        """, (start_date_sql, end_date_sql))
+        pos_revenue = cursor.fetchone()[0] or 0
+        report['pos_revenue'] = pos_revenue
+
+        # 3. Chiffre d'affaires total
+        report['total_revenue'] = stay_revenue + pos_revenue
+
+        # 4. Ventilation par mode de paiement (pour les ventes directes)
+        cursor.execute("""
+            SELECT mode_paiement, SUM(montant) as total
+            FROM paiements
+            WHERE date_heure BETWEEN ? AND ?
+            GROUP BY mode_paiement
+            ORDER BY total DESC
+        """, (start_date_sql, end_date_sql))
+        report['payments_breakdown'] = [dict(row) for row in cursor.fetchall()]
+
+        # 5. Top 5 des produits par quantité vendue
+        cursor.execute("""
+            SELECT p.nom, SUM(lc.quantite) as total_qty
+            FROM lignes_commande lc
+            JOIN produits_services p ON lc.produit_id = p.id
+            JOIN commandes_ventes cv ON lc.commande_id = cv.id
+            WHERE cv.date_heure BETWEEN ? AND ?
+            GROUP BY p.nom
+            ORDER BY total_qty DESC
+            LIMIT 5
+        """, (start_date_sql, end_date_sql))
+        report['top_products_by_qty'] = [dict(row) for row in cursor.fetchall()]
+
+        # 6. Top 5 des produits par chiffre d'affaires
+        cursor.execute("""
+            SELECT p.nom, SUM(lc.quantite * lc.prix_unitaire_vente) as total_value
+            FROM lignes_commande lc
+            JOIN produits_services p ON lc.produit_id = p.id
+            JOIN commandes_ventes cv ON lc.commande_id = cv.id
+            WHERE cv.date_heure BETWEEN ? AND ?
+            GROUP BY p.nom
+            ORDER BY total_value DESC
+            LIMIT 5
+        """, (start_date_sql, end_date_sql))
+        report['top_products_by_value'] = [dict(row) for row in cursor.fetchall()]
+
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la génération du rapport : {e}")
+    finally:
+        conn.close()
+
+    return report

@@ -443,11 +443,44 @@ def admin_delete_user(user_id):
         
     return redirect(url_for('admin_dashboard'))
 
+# --- Route Reporting ---
+
+@app.route('/admin/reporting', methods=['GET', 'POST'])
+@admin_required
+def reporting_page():
+    """Affiche la page de reporting et traite la sélection de dates."""
+    # Dates par défaut : le mois en cours
+    today = datetime.now()
+    start_date_default = today.replace(day=1).strftime('%Y-%m-%d')
+    end_date_default = today.strftime('%Y-%m-%d')
+
+    report_data = None
+
+    if request.method == 'POST':
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+
+        if not start_date or not end_date:
+            flash("Veuillez sélectionner une date de début et de fin.", 'error')
+        else:
+            report_data = data_manager.get_sales_report(start_date, end_date)
+
+    return render_template(
+        'reporting.html',
+        user=session['user'],
+        start_date=start_date_default if request.method == 'GET' else start_date,
+        end_date=end_date_default if request.method == 'GET' else end_date,
+        report=report_data
+    )
+
 # ----------------------------------------------------------------------
 # --- DÉMARRAGE DE L'APPLICATION ---
 # ----------------------------------------------------------------------
 
 if __name__ == '__main__':
+    # S'assure que la base de données et les tables sont créées au démarrage
+    db_setup.create_database()
+
     # Vérifie et crée l'utilisateur 'admin' si nécessaire
     user_manager.check_for_admin_and_setup()
     
