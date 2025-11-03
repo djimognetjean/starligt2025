@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+{% block title %}Facturation - Séjour {{ stay.numero }}{% endblock %}
+
+{% block content %}
+    <h1>Facturation & Check-out</h1>
+    <p>Client : <strong>{{ stay.client_nom }}</strong> | Chambre : <strong>{{ stay.numero }} ({{ stay.type_chambre }})</strong></p>
+
+    <div class="invoice-box">
+        <h3>Détail de l'Hébergement</h3>
+        <table class="dashboard-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Détail</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Date d'arrivée (Check-in)</td>
+                    <td>{{ checkin_date.strftime('%d/%m/%Y à %H:%M') }}</td>
+                </tr>
+                <tr>
+                    <td>Date de départ (Check-out)</td>
+                    <td>{{ checkout_date.strftime('%d/%m/%Y à %H:%M') }} (Maintenant)</td>
+                </tr>
+                <tr>
+                    <td>Durée facturée</td>
+                    <td><strong>{{ num_nights }} nuit(s)</strong></td>
+                </tr>
+                <tr>
+                    <td>Tarif par nuit</td>
+                    <td>{{ "%.0f"|format(stay.prix_nuit) }} FCFA</td>
+                </tr>
+                <tr>
+                    <td><strong>Sous-total Hébergement</strong></td>
+                    <td><strong>{{ "%.0f"|format(cost_room_stay) }} FCFA</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="margin-top: 2rem;">Services et Consommations (POS)</h3>
+        <table class="dashboard-table">
+            <thead>
+                <tr>
+                    <th>Article</th>
+                    <th>Quantité</th>
+                    <th>Prix Unitaire</th>
+                    <th>Sous-total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ordered_items %}
+                <tr>
+                    <td>{{ item.nom }}</td>
+                    <td>{{ item.quantite }}</td>
+                    <td>{{ "%.0f"|format(item.prix_unitaire_vente) }} FCFA</td>
+                    <td>{{ "%.0f"|format(item.sous_total) }} FCFA</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #777;">Aucune consommation enregistrée.</td>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td colspan="3" style="text-align: right; font-weight: bold;"><strong>Sous-total Services</strong></td>
+                    <td style="font-weight: bold;"><strong>{{ "%.0f"|format(cost_services) }} FCFA</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="total-box">
+            <h2>MONTANT TOTAL À PAYER</h2>
+            <h1>{{ "%.0f"|format(total_bill) }} FCFA</h1>
+            
+            <form method="POST" action="{{ url_for('confirm_checkout', stay_id=stay.id) }}" style="display: inline-block; margin-right: 10px;">
+                <input type="hidden" name="total_bill" value="{{ total_bill }}">
+                
+                <button type="submit" class="btn btn-checkout">
+                    ✅ Confirmer le Check-out et Marquer comme Payé
+                </button>
+            </form>
+            <a href="{{ url_for('generate_invoice_pdf', stay_id=stay.id) }}" target="_blank" class="btn">
+                📄 Imprimer la Facture
+            </a>
+        </div>
+    </div>
+{% endblock %}
