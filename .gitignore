@@ -10,3 +10,7 @@ __pycache__/
 # Environnements virtuels (si vous en utilisez un)
 venv/
 .venv/
+
+# Fichiers journaux
+app.log
+app_output.log

@@ -124,6 +124,28 @@ def delete_user(user_id):
         return False
     finally:
         conn.close()
+
+def update_admin_password(new_password):
+    """Met à jour le mot de passe de l'utilisateur 'admin'."""
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    hashed_pass = hash_password(new_password)
+
+    try:
+        cursor.execute("""
+            UPDATE utilisateurs
+            SET mot_de_passe_hash = ?
+            WHERE nom_utilisateur = 'admin'
+        """, (hashed_pass,))
+        conn.commit()
+        return cursor.rowcount > 0 # Vrai si la mise à jour a réussi
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la mise à jour du mot de passe admin : {e}")
+        return False
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     # Vous pouvez exécuter ce fichier seul pour tester la création de l'admin
     check_for_admin_and_setup()
