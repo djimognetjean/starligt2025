@@ -506,6 +506,27 @@ def admin_delete_user(user_id):
         
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/change_password', methods=['GET', 'POST'])
+@admin_required
+def change_password():
+    """Affiche le formulaire de changement de mot de passe et traite la soumission."""
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        if new_password != confirm_password:
+            flash("Les mots de passe ne correspondent pas.", 'error')
+            return redirect(url_for('change_password'))
+
+        if user_manager.update_admin_password(new_password):
+            flash("Mot de passe de l'administrateur mis à jour avec succès.", 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Erreur lors de la mise à jour du mot de passe.", 'error')
+            return redirect(url_for('change_password'))
+
+    return render_template('change_password.html', user=session['user'])
+
 # --- Route Reporting ---
 
 @app.route('/admin/reporting', methods=['GET', 'POST'])
