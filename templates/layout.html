@@ -9,11 +9,13 @@
 <body>
 
     <nav class="navbar">
-        <a href="{{ url_for('reception') }}" class="nav-brand">Starlight POS</a>
+        <a href="{{ url_for('pos_interface') if user.role == 'Caissier' else url_for('reception') }}" class="nav-brand">Starlight POS</a>
         ...
         <div class="nav-links">
+            {% if user.role != 'Caissier' %}
             <a href="{{ url_for('reception') }}">🏨 Réception</a>
             <a href="{{ url_for('reservations_page') }}">📅 Réservations</a>
+            {% endif %}
             <a href="{{ url_for('pos_interface') }}">💰 Point de Vente (POS)</a>
             
             {% if user and user.role == 'Admin' %}

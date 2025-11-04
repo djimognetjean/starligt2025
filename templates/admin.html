@@ -63,7 +63,10 @@
                 {% for room in all_rooms %}
                 <tr>
                     <td>Ch. {{ room.numero }} ({{ room.type_chambre }})</td>
-                    <td><a href="{{ url_for('admin_delete_room', room_id=room.id) }}" class="btn-sm" style="color: red;">Supprimer</a></td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_room', room_id=room.id) }}" class="btn-sm">Modifier</a>
+                        <a href="{{ url_for('admin_delete_room', room_id=room.id) }}" class="btn-sm" style="color: red;">Supprimer</a>
+                    </td>
                 </tr>
                 {% endfor %}
             </table>
@@ -92,7 +95,10 @@
                 {% for product in all_products %}
                 <tr>
                     <td>{{ product.nom }} ({{ product.categorie }})</td>
-                    <td><a href="{{ url_for('admin_delete_product', product_id=product.id) }}" class="btn-sm" style="color: red;">Supprimer</a></td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_product', product_id=product.id) }}" class="btn-sm">Modifier</a>
+                        <a href="{{ url_for('admin_delete_product', product_id=product.id) }}" class="btn-sm" style="color: red;">Supprimer</a>
+                    </td>
                 </tr>
                 {% endfor %}
             </table>

@@ -34,6 +34,17 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# --- SÉCURITÉ : DÉCORATEUR POUR RESTREINDRE LE CAISSIER ---
+def caissier_restriction_required(f):
+    """Redirige le caissier s'il tente d'accéder à une page non autorisée."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('user') and session['user']['role'] == 'Caissier':
+            flash("Accès non autorisé pour votre profil.", 'error')
+            return redirect(url_for('pos_interface'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # ----------------------------------------------------------------------
 # --- GESTION DE L'AUTHENTIFICATION ---
 # ----------------------------------------------------------------------
@@ -54,7 +65,12 @@ def login():
             # Stocke les infos utilisateur (id, username, role) dans la session
             session['user'] = user 
             flash(f"Connexion réussie ! Bienvenue {user['username']}.", 'success')
-            return redirect(url_for('reception'))
+
+            # --- REDIRECTION BASÉE SUR LE RÔLE ---
+            if user['role'] == 'Caissier':
+                return redirect(url_for('pos_interface'))
+            else:
+                return redirect(url_for('reception'))
         else:
             flash("Nom d'utilisateur ou mot de passe incorrect.", 'error')
             
@@ -74,6 +90,7 @@ def logout():
 
 @app.route('/reception')
 @login_required
+@caissier_restriction_required
 def reception():
     """Page principale (Dashboard Réception)."""
     active_stays_data = data_manager.get_active_stays()
@@ -92,6 +109,7 @@ def reception():
 
 @app.route('/checkin/nouveau', methods=['GET'])
 @login_required
+@caissier_restriction_required
 def show_checkin_form():
     """Affiche la page avec le formulaire de check-in."""
     today = datetime.now().strftime('%Y-%m-%d')
@@ -116,6 +134,7 @@ def show_checkin_form():
 
 @app.route('/reservations', methods=['GET', 'POST'])
 @login_required
+@caissier_restriction_required
 def reservations_page():
     """Affiche et gère la création de réservations."""
     if request.method == 'POST':
@@ -152,6 +171,7 @@ def reservations_page():
 
 @app.route('/reservations/annuler/<int:reservation_id>')
 @login_required
+@caissier_restriction_required
 def cancel_reservation_route(reservation_id):
     """Traite l'annulation d'une réservation."""
     success = data_manager.cancel_reservation(reservation_id)
@@ -163,6 +183,7 @@ def cancel_reservation_route(reservation_id):
 
 @app.route('/checkin/creer', methods=['POST'])
 @login_required
+@caissier_restriction_required
 def create_checkin():
     """Traite les données du formulaire de check-in."""
     room_id = request.form['chambre_id']
@@ -184,6 +205,7 @@ def create_checkin():
 
 @app.route('/facture/<int:stay_id>', methods=['GET'])
 @login_required
+@caissier_restriction_required
 def show_billing(stay_id):
     """Affiche la page de facturation détaillée pour un séjour."""
     stay_details = data_manager.get_stay_details(stay_id)
@@ -227,6 +249,7 @@ def show_billing(stay_id):
 
 @app.route('/facture/pdf/<int:stay_id>', methods=['GET'])
 @login_required
+@caissier_restriction_required
 def generate_invoice_pdf(stay_id):
     """Génère la facture en PDF pour un séjour."""
     stay_details = data_manager.get_stay_details(stay_id)
@@ -276,6 +299,7 @@ def generate_invoice_pdf(stay_id):
 
 @app.route('/checkout/confirmer/<int:stay_id>', methods=['POST'])
 @login_required
+@caissier_restriction_required
 def confirm_checkout(stay_id):
     """Traite la confirmation du check-out et marque le séjour comme 'Clos'."""
     total_bill_paid = request.form['total_bill']
@@ -297,7 +321,8 @@ def confirm_checkout(stay_id):
 @login_required
 def pos_interface():
     """Affiche l'interface principale du POS."""
-    products = data_manager.get_all_products()
+    user_role = session['user']['role']
+    products = data_manager.get_all_products(user_role)
     active_stays = data_manager.get_active_stays()
     
     return render_template(
@@ -434,6 +459,29 @@ def admin_delete_room(room_id):
         flash("Erreur : Impossible de supprimer une chambre occupée.", 'error')
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/edit_room/<int:room_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_room(room_id):
+    """Affiche le formulaire de modification d'une chambre et traite la soumission."""
+    room = data_manager.get_room(room_id)
+    if not room:
+        flash("Chambre non trouvée.", 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    if request.method == 'POST':
+        numero = request.form['numero']
+        type_chambre = request.form['type_chambre']
+        prix_nuit = float(request.form['prix_nuit'])
+
+        if data_manager.update_room(room_id, numero, type_chambre, prix_nuit):
+            flash(f"Chambre {numero} mise à jour avec succès.", 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Erreur lors de la mise à jour de la chambre.", 'error')
+            return redirect(url_for('admin_edit_room', room_id=room_id))
+
+    return render_template('edit_room.html', user=session['user'], room=room)
+
 # --- Routes Produits POS ---
 
 @app.route('/admin/add_product', methods=['POST'])
@@ -464,6 +512,30 @@ def admin_delete_product(product_id):
     else:
         flash("Erreur : Impossible de supprimer ce produit (peut-être lié à d'anciennes commandes).", 'error')
     return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/edit_product/<int:product_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_product(product_id):
+    """Affiche le formulaire de modification d'un produit et traite la soumission."""
+    product = data_manager.get_product(product_id)
+    if not product:
+        flash("Produit non trouvé.", 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    if request.method == 'POST':
+        nom = request.form['nom']
+        prix = float(request.form['prix_unitaire'])
+        categorie = request.form['categorie']
+        type_vente = request.form['type_vente']
+
+        if data_manager.update_product(product_id, nom, prix, type_vente, categorie):
+            flash(f"Produit '{nom}' mis à jour avec succès.", 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Erreur lors de la mise à jour du produit.", 'error')
+            return redirect(url_for('admin_edit_product', product_id=product_id))
+
+    return render_template('edit_product.html', user=session['user'], product=product)
 
 # --- Routes Utilisateurs ---
 
@@ -531,6 +603,7 @@ def change_password():
 
 @app.route('/admin/reporting', methods=['GET', 'POST'])
 @admin_required
+@caissier_restriction_required
 def reporting_page():
     """Affiche la page de reporting et traite la sélection de dates."""
     # Dates par défaut : le mois en cours
