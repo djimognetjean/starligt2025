@@ -506,6 +506,53 @@ def admin_delete_user(user_id):
         
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/edit_user/<int:user_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_user(user_id):
+    """Affiche le formulaire de modification de mot de passe pour un utilisateur et traite la soumission."""
+    edited_user = user_manager.get_user_by_id(user_id)
+    if not edited_user:
+        flash("Utilisateur non trouvé.", 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        if new_password != confirm_password:
+            flash("Les mots de passe ne correspondent pas.", 'error')
+            return redirect(url_for('edit_user', user_id=user_id))
+
+        if user_manager.update_user_password(user_id, new_password):
+            flash(f"Mot de passe de l'utilisateur '{edited_user['nom_utilisateur']}' mis à jour avec succès.", 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Erreur lors de la mise à jour du mot de passe.", 'error')
+            return redirect(url_for('edit_user', user_id=user_id))
+
+    return render_template('edit_user.html', user=session['user'], edited_user=edited_user)
+
+@app.route('/admin/change_password', methods=['GET', 'POST'])
+@admin_required
+def change_password():
+    """Affiche le formulaire de changement de mot de passe et traite la soumission."""
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        if new_password != confirm_password:
+            flash("Les mots de passe ne correspondent pas.", 'error')
+            return redirect(url_for('change_password'))
+
+        if user_manager.update_admin_password(new_password):
+            flash("Mot de passe de l'administrateur mis à jour avec succès.", 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Erreur lors de la mise à jour du mot de passe.", 'error')
+            return redirect(url_for('change_password'))
+
+    return render_template('change_password.html', user=session['user'])
+
 # --- Route Reporting ---
 
 @app.route('/admin/reporting', methods=['GET', 'POST'])

@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block title %}Modifier le mot de passe de l'utilisateur{% endblock %}
+
+{% block content %}
+<style>
+    .user-edit-container {
+        max-width: 500px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .user-edit-form label {
+        font-weight: 600;
+        display: block;
+        margin-top: 1rem;
+    }
+    .user-edit-form input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box;
+        margin-top: 0.5rem;
+    }
+</style>
+
+<div class="user-edit-container">
+    <h2>Modifier le mot de passe pour {{ edited_user.nom_utilisateur }}</h2>
+    <form method="POST" action="{{ url_for('edit_user', user_id=edited_user.id) }}" class="user-edit-form">
+        <label for="new_password">Nouveau mot de passe :</label>
+        <input type="password" name="new_password" required>
+        <label for="confirm_password">Confirmer le nouveau mot de passe :</label>
+        <input type="password" name="confirm_password" required>
+        <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">Mettre à jour le mot de passe</button>
+    </form>
+</div>
+{% endblock %}

@@ -33,8 +33,9 @@
 
 <h1>Panneau d'Administration</h1>
 
-<div style="margin-bottom: 2rem;">
+<div style="margin-bottom: 2rem; display: flex; gap: 1rem;">
     <a href="{{ url_for('reporting_page') }}" class="btn btn-secondary">📊 Voir les Rapports de Ventes</a>
+    <a href="{{ url_for('change_password') }}" class="btn btn-warning">🔑 Changer le mot de passe Admin</a>
 </div>
 
 <div class="admin-container">
@@ -117,13 +118,25 @@
 
         <div class="admin-list">
             <table class="dashboard-table">
-                {% for user in all_users %}
-                <tr>
-                    <td>{{ user.nom_utilisateur }}</td>
-                    <td><strong>{{ user.role }}</strong></td>
-                    <td><a href="{{ url_for('admin_delete_user', user_id=user.id) }}" class="btn-sm" style="color: red;">Supprimer</a></td>
-                </tr>
-                {% endfor %}
+                <thead>
+                    <tr>
+                        <th>Nom d'utilisateur</th>
+                        <th>Rôle</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in all_users %}
+                    <tr>
+                        <td>{{ user.nom_utilisateur }}</td>
+                        <td><strong>{{ user.role }}</strong></td>
+                        <td style="text-align: right;">
+                            <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn-sm btn-secondary">Modifier MDP</a>
+                            <a href="{{ url_for('admin_delete_user', user_id=user.id) }}" class="btn-sm" style="color: red; margin-left: 0.5rem;">Supprimer</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
             </table>
         </div>
     </div>
