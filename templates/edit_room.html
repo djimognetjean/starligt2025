@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+{% block title %}Modifier Chambre{% endblock %}
+
+{% block content %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .form-container h1 {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .form-container label {
+        font-weight: 600;
+        display: block;
+        margin-top: 1.5rem;
+    }
+    .form-container input, .form-container select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box;
+        margin-top: 0.5rem;
+    }
+    .form-actions {
+        margin-top: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+</style>
+
+<div class="form-container">
+    <h1>Modifier la Chambre {{ room.numero }}</h1>
+
+    <form method="POST" action="{{ url_for('admin_edit_room', room_id=room.id) }}">
+        <label for="numero">Numéro Chambre :</label>
+        <input type="text" name="numero" value="{{ room.numero }}" required>
+
+        <label for="type_chambre">Type :</label>
+        <select name="type_chambre">
+            <option {% if room.type_chambre == 'Confort' %}selected{% endif %}>Confort</option>
+            <option {% if room.type_chambre == 'Élégance' %}selected{% endif %}>Élégance</option>
+            <option {% if room.type_chambre == 'Premium' %}selected{% endif %}>Premium</option>
+            <option {% if room.type_chambre == 'Deluxes' %}selected{% endif %}>Deluxes</option>
+            <option {% if room.type_chambre == 'Suites' %}selected{% endif %}>Suites</option>
+        </select>
+
+        <label for="prix_nuit">Prix/Nuit (FCFA) :</label>
+        <input type="number" name="prix_nuit" value="{{ room.prix_nuit }}" required>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

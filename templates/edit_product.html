@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+{% block title %}Modifier Produit{% endblock %}
+
+{% block content %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .form-container h1 {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .form-container label {
+        font-weight: 600;
+        display: block;
+        margin-top: 1.5rem;
+    }
+    .form-container input, .form-container select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box;
+        margin-top: 0.5rem;
+    }
+    .form-actions {
+        margin-top: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+</style>
+
+<div class="form-container">
+    <h1>Modifier le Produit "{{ product.nom }}"</h1>
+
+    <form method="POST" action="{{ url_for('admin_edit_product', product_id=product.id) }}">
+        <label for="nom">Nom Produit :</label>
+        <input type="text" name="nom" value="{{ product.nom }}" required>
+
+        <label for="prix_unitaire">Prix (FCFA) :</label>
+        <input type="number" name="prix_unitaire" value="{{ product.prix_unitaire }}" required>
+
+        <label for="categorie">Catégorie :</label>
+        <input type="text" name="categorie" value="{{ product.categorie }}" required>
+
+        <label for="type_vente">Type :</label>
+        <select name="type_vente">
+            <option {% if product.type_vente == 'Consommation' %}selected{% endif %}>Consommation</option>
+            <option {% if product.type_vente == 'Service Auxiliaire' %}selected{% endif %}>Service Auxiliaire</option>
+        </select>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
