@@ -76,18 +76,21 @@ def logout():
 @login_required
 def reception():
     """Page principale (Dashboard Réception)."""
+    # Récupérer les stats consolidées
+    dashboard_stats = data_manager.get_dashboard_stats()
+
+    # Données pour les listes en bas de page (inchangées)
     active_stays_data = data_manager.get_active_stays()
     all_reservations = data_manager.get_all_reservations()
-    
-    # Filtrer les arrivées du jour
     today_str = datetime.now().strftime('%Y-%m-%d')
-    todays_arrivals = [r for r in all_reservations if r['date_debut'] == today_str]
+    todays_arrivals_list = [r for r in all_reservations if r['date_debut'] == today_str]
 
     return render_template(
         'reception.html', 
         user=session['user'], 
+        stats=dashboard_stats,
         active_stays=active_stays_data,
-        todays_arrivals=todays_arrivals
+        todays_arrivals=todays_arrivals_list
     )
 
 @app.route('/checkin/nouveau', methods=['GET'])

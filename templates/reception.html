@@ -1,76 +1,133 @@
-{% extends "layout.html" %}
 
-{% block title %}Tableau de Bord Réception{% endblock %}
+{% extends "layout.html" %}
+{% block title %}Tableau de Bord - Réception{% endblock %}
 
 {% block content %}
-<style>
-    .reception-grid {
-        display: grid;
-        grid-template-columns: 3fr 1fr;
-        gap: 2rem;
-        align-items: flex-start;
-    }
-    .widget-card {
-        background: #fff;
-        padding: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-</style>
-
-<h1>Tableau de Bord Réception</h1>
-
-<div class="reception-grid">
-    <div class="main-content">
-        <a href="{{ url_for('show_checkin_form') }}" class="btn btn-primary" style="margin-bottom: 1.5rem;">🔑 Nouveau Check-in</a>
-        <h2>Séjours en Cours</h2>
-
-    <table class="dashboard-table">
-        <thead>
-            <tr>
-                <th>Chambre N°</th>
-                <th>Nom du Client</th>
-                <th>Date d'Arrivée</th>
-                <th>Solde Actuel (FCFA)</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for stay in active_stays %}
-                <tr>
-                    <td><strong>{{ stay.numero }}</strong></td>
-                    <td>{{ stay.client_nom }}</td>
-                    <td>{{ stay.date_checkin.split(' ')[0] }}</td>
-                    <td>{{ "%.0f"|format(stay.solde_actuel) }}</td>
-                    <td>
-                       <a href="{{ url_for('show_billing', stay_id=stay.id) }}" class="btn-sm">Facturer / Check-out</a>
-                    </td>
-                </tr>
-            {% else %}
-                <tr>
-                    <td colspan="5" style="text-align: center; color: #777; padding: 2rem;">
-                        Aucun séjour en cours pour le moment.
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="header-bar">
+        <h1>Tableau de Bord</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('show_checkin_form') }}" class="btn btn-primary">Nouveau Check-in</a>
+            <a href="{{ url_for('reservations_page') }}" class="btn btn-secondary">Créer Réservation</a>
+        </div>
     </div>
 
-    <div class="sidebar">
+    <!-- Grille des statistiques -->
+    <div class="dashboard-grid">
+        <!-- Carte Revenu -->
+        <div class="stat-card">
+            <div class="card-icon revenue">💰</div>
+            <div class="card-content">
+                <h3>Revenu du Jour</h3>
+                <p>{{ "%.0f" | format(stats.daily_revenue) }} FCFA</p>
+            </div>
+        </div>
+
+        <!-- Carte Arrivées -->
+        <div class="stat-card">
+            <div class="card-icon arrivals">🏨</div>
+            <div class="card-content">
+                <h3>Arrivées Prévues</h3>
+                <p>{{ stats.todays_arrivals }}</p>
+            </div>
+        </div>
+
+        <!-- Carte Départs -->
+        <div class="stat-card">
+            <div class="card-icon departures">👋</div>
+            <div class="card-content">
+                <h3>Départs Prévus</h3>
+                <p>{{ stats.todays_departures }}</p>
+            </div>
+        </div>
+
+        <!-- Carte Taux d'Occupation -->
+        <div class="stat-card wide-card">
+             <div class="card-icon rooms">📊</div>
+             <div class="card-content">
+                <h3>État des Chambres</h3>
+                <canvas id="roomStatusChart" width="400" height="170"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section des listes (inchangée) -->
+    <div class="dashboard-lists">
+        <div class="widget-card">
+            <h4>Séjours Actifs</h4>
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Chambre</th>
+                        <th>Client</th>
+                        <th>Date Check-in</th>
+                        <th>Solde</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stay in active_stays %}
+                    <tr>
+                        <td>{{ stay.numero }}</td>
+                        <td>{{ stay.client_nom }}</td>
+                        <td>{{ stay.date_checkin.split(' ')[0] }}</td>
+                        <td>{{ stay.solde_actuel }} FCFA</td>
+                        <td><a href="{{ url_for('show_billing', stay_id=stay.id) }}" class="btn-action">Facturer / Checkout</a></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5">Aucun séjour actif pour le moment.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <div class="widget-card">
             <h4>Arrivées Prévues Aujourd'hui</h4>
             <ul class="simple-list">
                 {% for arrival in todays_arrivals %}
-                    <li>
-                        <strong>{{ arrival.client_nom }}</strong><br>
-                        <small>Chambre {{ arrival.numero }}</small>
-                    </li>
+                    <li><strong>{{ arrival.client_nom }}</strong> (Ch. {{ arrival.numero }})</li>
                 {% else %}
-                    <li>Aucune arrivée prévue.</li>
+                    <li>Aucune arrivée prévue pour aujourd'hui.</li>
                 {% endfor %}
             </ul>
         </div>
     </div>
-</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('roomStatusChart').getContext('2d');
+
+    // Récupérer les données depuis le template
+    const roomCounts = {{ stats.room_counts | tojson }};
+    const labels = Object.keys(roomCounts);
+    const data = Object.values(roomCounts);
+
+    const roomStatusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'État des Chambres',
+                data: data,
+                backgroundColor: [
+                    '#4CAF50', // Libre
+                    '#F44336', // Occupée
+                    '#FFC107', // Réservée
+                    '#9E9E9E'  // Autre
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

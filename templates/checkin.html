@@ -13,6 +13,7 @@
                 <button class="arrival-btn"
                         data-client="{{ arrival.client_nom }}"
                         data-room-id="{{ arrival.chambre_id }}"
+                        data-room-details="Ch. {{ arrival.numero }} ({{ arrival.type_chambre }})"
                         data-checkout="{{ arrival.date_fin }}">
                     <strong>{{ arrival.client_nom }}</strong> (Ch. {{ arrival.numero }})
                 </button>
@@ -58,12 +59,15 @@
         const checkoutInput = document.getElementById('date_checkout_prevue');
 
         arrivalButtons.forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Empêche la soumission du formulaire
+
                 // Remplir les champs
                 clientNameInput.value = this.dataset.client;
                 checkoutInput.value = this.dataset.checkout;
 
                 const roomId = this.dataset.roomId;
+                const roomDetails = this.dataset.roomDetails;
 
                 // Vérifier si l'option de la chambre existe déjà
                 let roomOption = roomSelect.querySelector(`option[value="${roomId}"]`);
@@ -71,7 +75,7 @@
                     // Si elle n'existe pas (car la chambre est réservée), on l'ajoute
                     roomOption = document.createElement('option');
                     roomOption.value = roomId;
-                    roomOption.textContent = this.textContent.split('(')[1].replace(')',''); // Extrait "Ch. XXX"
+                    roomOption.textContent = roomDetails;
                     roomSelect.appendChild(roomOption);
                 }
 
