@@ -490,3 +490,63 @@ def get_sales_report(start_date, end_date):
         conn.close()
 
     return report
+
+def get_dashboard_stats():
+    """Récupère les statistiques clés pour le tableau de bord de la réception."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    today = datetime.now().strftime('%Y-m-%d')
+    stats = {}
+
+    try:
+        # 1. État des chambres
+        cursor.execute("""
+            SELECT statut, COUNT(*) as count
+            FROM chambres
+            GROUP BY statut
+        """)
+        room_statuses = cursor.fetchall()
+        stats['room_counts'] = {status['statut']: status['count'] for status in room_statuses}
+        stats['total_rooms'] = sum(stats['room_counts'].values())
+
+        # 2. Arrivées et départs du jour
+        cursor.execute("SELECT COUNT(*) FROM reservations WHERE date_debut = ?", (today,))
+        stats['todays_arrivals'] = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM sejours WHERE date_checkout_prevue = ?", (today,))
+        stats['todays_departures'] = cursor.fetchone()[0]
+
+        # 3. Revenu du jour (Check-outs finalisés + Ventes POS directes)
+        start_of_day = f"{today} 00:00:00"
+        end_of_day = f"{today} 23:59:59"
+
+        # Revenu des check-outs
+        cursor.execute("""
+            SELECT SUM(solde_actuel)
+            FROM sejours
+            WHERE statut = 'Clos' AND date_checkout_reelle BETWEEN ? AND ?
+        """, (start_of_day, end_of_day))
+        checkout_revenue = cursor.fetchone()[0] or 0.0
+
+        # Revenu des ventes POS directes (non transférées)
+        cursor.execute("""
+            SELECT SUM(total_net)
+            FROM commandes_ventes
+            WHERE statut_paiement = 'Payé' AND date_heure BETWEEN ? AND ?
+        """, (start_of_day, end_of_day))
+        pos_revenue = cursor.fetchone()[0] or 0.0
+
+        stats['daily_revenue'] = checkout_revenue + pos_revenue
+
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la récupération des stats du dashboard : {e}")
+        # Initialiser avec des valeurs par défaut en cas d'erreur
+        stats = {
+            'room_counts': {}, 'total_rooms': 0, 'todays_arrivals': 0,
+            'todays_departures': 0, 'daily_revenue': 0.0
+        }
+    finally:
+        conn.close()
+
+    return stats
