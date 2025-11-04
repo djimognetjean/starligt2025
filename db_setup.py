@@ -1,5 +1,6 @@
 # db_setup.py
 import sqlite3
+from datetime import datetime, timedelta
 
 DATABASE_NAME = 'hotel_pos.db'
 
@@ -60,6 +61,27 @@ def prefill_products(cursor):
             VALUES (?, ?, ?, ?)
         """, products_to_add)
         print(f"{len(products_to_add)} produits/services pré-remplis.")
+
+
+def prefill_reservations(cursor):
+    """Ajoute une réservation de test pour aujourd'hui si aucune n'existe."""
+    cursor.execute("SELECT COUNT(*) FROM reservations WHERE date_debut = ?", (datetime.now().strftime('%Y-%m-%d'),))
+    if cursor.fetchone()[0] == 0:
+        print("Aucune réservation pour aujourd'hui. Ajout d'une réservation de test...")
+
+        # S'assurer que la chambre 101 (ID 1) existe
+        cursor.execute("SELECT id FROM chambres WHERE numero = '101'")
+        room = cursor.fetchone()
+        if room:
+            room_id = room[0]
+            today = datetime.now().strftime('%Y-%m-%d')
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+            cursor.execute("""
+                INSERT INTO reservations (chambre_id, client_nom, date_debut, date_fin)
+                VALUES (?, ?, ?, ?)
+            """, (room_id, 'Jean TAMA', today, tomorrow))
+            print("Réservation de test pour 'Jean TAMA' ajoutée.")
 
 
 def create_database():
@@ -174,7 +196,8 @@ def create_database():
         
         # --- APPEL DES PRÉ-REMPLISSAGES ---
         prefill_rooms(cursor)
-        prefill_products(cursor) # <-- AJOUTÉ
+        prefill_products(cursor)
+        prefill_reservations(cursor)
         
         conn.commit()
         print(f"Base de données '{DATABASE_NAME}' et tables créées/vérifiées.")

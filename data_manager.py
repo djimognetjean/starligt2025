@@ -251,7 +251,7 @@ def get_all_reservations():
     conn = get_db_connection()
     cursor = conn.cursor()
     query = """
-        SELECT r.id, c.numero, r.client_nom, r.date_debut, r.date_fin, r.statut
+        SELECT r.id, r.chambre_id, c.numero, c.type_chambre, r.client_nom, r.date_debut, r.date_fin, r.statut
         FROM reservations r
         JOIN chambres c ON r.chambre_id = c.id
         WHERE r.statut = 'Confirmée' AND r.date_fin >= date('now')
