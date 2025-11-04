@@ -434,6 +434,29 @@ def admin_delete_room(room_id):
         flash("Erreur : Impossible de supprimer une chambre occupée.", 'error')
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/edit_room/<int:room_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_room(room_id):
+    """Affiche le formulaire de modification d'une chambre et traite la soumission."""
+    room = data_manager.get_room(room_id)
+    if not room:
+        flash("Chambre non trouvée.", 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    if request.method == 'POST':
+        numero = request.form['numero']
+        type_chambre = request.form['type_chambre']
+        prix_nuit = float(request.form['prix_nuit'])
+
+        if data_manager.update_room(room_id, numero, type_chambre, prix_nuit):
+            flash(f"Chambre {numero} mise à jour avec succès.", 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Erreur lors de la mise à jour de la chambre.", 'error')
+            return redirect(url_for('admin_edit_room', room_id=room_id))
+
+    return render_template('edit_room.html', user=session['user'], room=room)
+
 # --- Routes Produits POS ---
 
 @app.route('/admin/add_product', methods=['POST'])
@@ -464,6 +487,30 @@ def admin_delete_product(product_id):
     else:
         flash("Erreur : Impossible de supprimer ce produit (peut-être lié à d'anciennes commandes).", 'error')
     return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/edit_product/<int:product_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_product(product_id):
+    """Affiche le formulaire de modification d'un produit et traite la soumission."""
+    product = data_manager.get_product(product_id)
+    if not product:
+        flash("Produit non trouvé.", 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    if request.method == 'POST':
+        nom = request.form['nom']
+        prix = float(request.form['prix_unitaire'])
+        categorie = request.form['categorie']
+        type_vente = request.form['type_vente']
+
+        if data_manager.update_product(product_id, nom, prix, type_vente, categorie):
+            flash(f"Produit '{nom}' mis à jour avec succès.", 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Erreur lors de la mise à jour du produit.", 'error')
+            return redirect(url_for('admin_edit_product', product_id=product_id))
+
+    return render_template('edit_product.html', user=session['user'], product=product)
 
 # --- Routes Utilisateurs ---
 

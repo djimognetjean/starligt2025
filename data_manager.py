@@ -18,6 +18,15 @@ def get_all_rooms():
     conn.close()
     return rooms
 
+def get_room(room_id):
+    """(ADMIN) Récupère les détails d'une chambre par ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, numero, type_chambre, prix_nuit FROM chambres WHERE id = ?", (room_id,))
+    room = cursor.fetchone()
+    conn.close()
+    return room
+
 def add_room_type(numero, type_chambre, prix_nuit):
     """(ADMIN) Ajoute une nouvelle chambre."""
     conn = get_db_connection()
@@ -50,6 +59,24 @@ def delete_room(room_id):
     finally:
         conn.close()
 
+def update_room(room_id, numero, type_chambre, prix_nuit):
+    """(ADMIN) Met à jour les détails d'une chambre."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE chambres
+            SET numero = ?, type_chambre = ?, prix_nuit = ?
+            WHERE id = ?
+        """, (numero, type_chambre, prix_nuit, room_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la mise à jour de la chambre : {e}")
+        return False
+    finally:
+        conn.close()
+
 # --- GESTION DES PRODUITS (CRUD) ---
 def get_all_products():
     conn = get_db_connection()
@@ -58,6 +85,15 @@ def get_all_products():
     products = cursor.fetchall()
     conn.close()
     return products
+
+def get_product(product_id):
+    """(ADMIN) Récupère les détails d'un produit par ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nom, prix_unitaire, type_vente, categorie FROM produits_services WHERE id = ?", (product_id,))
+    product = cursor.fetchone()
+    conn.close()
+    return product
 
 def add_product(nom, prix_unitaire, type_vente, categorie):
     """(ADMIN) Ajoute un nouveau produit/service."""
@@ -88,6 +124,24 @@ def delete_product(product_id):
     except sqlite3.IntegrityError:
         # Le produit est lié à une ligne_commande
         return False 
+    finally:
+        conn.close()
+
+def update_product(product_id, nom, prix_unitaire, type_vente, categorie):
+    """(ADMIN) Met à jour les détails d'un produit."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE produits_services
+            SET nom = ?, prix_unitaire = ?, type_vente = ?, categorie = ?
+            WHERE id = ?
+        """, (nom, prix_unitaire, type_vente, categorie, product_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"Erreur lors de la mise à jour du produit : {e}")
+        return False
     finally:
         conn.close()
 
